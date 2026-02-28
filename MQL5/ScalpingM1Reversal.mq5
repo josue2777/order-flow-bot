@@ -3,8 +3,8 @@
 
 #property strict
 #property copyright "Copyright 2026"
-#property version   "1.00"
-#property description "EA de scalping M1 basé sur le mouvement du prix et reset à chaque nouvelle bougie."
+#property version   "1.01"
+#property description "EA de scalping M1 avec tableau de bord graphique et image de fond personnalisée."
 
 //--- Includes
 #include <Trade\Trade.mqh>
@@ -16,11 +16,21 @@ input int MaxTotalPositions = 20;           // Limite de positions cumulées
 input ulong MagicNumber = 20260228;         // Identifiant unique des positions
 input double MaxSpread = 30.0;              // Spread maximum en points
 
+//--- Inputs Esthétiques
+input string InpBackgroundImage = "robot_hybride.bmp"; // Nom du fichier image (MQL5/Images/)
+input color  InpDashboardBg    = C'20,20,20';         // Couleur de fond du tableau
+input color  InpHeaderColor    = clrGold;             // Couleur des entêtes
+input color  InpTextColor      = clrWhite;            // Couleur du texte
+input int    InpFontSize       = 10;                  // Taille de police
+
 //--- Variables Globales
 double lastTriggerPrice = 0;                // Dernier prix ayant déclenché une action
 CTrade trade;                               // Instance de la classe CTrade pour les opérations
 datetime lastBarTime = 0;                   // Temps d'ouverture de la dernière bougie traitée
 string lastMoveType = "Aucun";              // Type du dernier mouvement détecté
+
+//--- Constantes UI
+#define UI_PREFIX "SF_UI_"
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -39,6 +49,10 @@ int OnInit()
    if(CopyTime(_Symbol, PERIOD_M1, 0, 1, times) > 0)
       lastBarTime = times[0];
 
+   // Initialisation graphique
+   SetBackgroundImage();
+   CreateDashboard();
+
    return(INIT_SUCCEEDED);
 }
 
@@ -47,7 +61,8 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
-   // Nettoyage du commentaire sur le graphique
+   // Nettoyage des objets graphiques
+   ObjectsDeleteAll(0, UI_PREFIX);
    Comment("");
 }
 
@@ -62,17 +77,118 @@ void OnTick()
    // 2. Vérification du mouvement de prix pour l'ouverture/fermeture de positions
    CheckPriceMoveAndFlip();
 
-   // 3. Affichage des informations sur le graphique
-   string message = "--- EA Scalping M1 Multi-Position ---\n";
-   message += "Seuil actuel: " + DoubleToString(PriceMoveThreshold, _Digits) + "\n";
-   message += "Dernier mouvement: " + lastMoveType + "\n";
-   message += "Dernier prix déclencheur: " + DoubleToString(lastTriggerPrice, _Digits) + "\n";
-   message += "Positions BUY: " + IntegerToString(CountBuyPositions()) + "\n";
-   message += "Positions SELL: " + IntegerToString(CountSellPositions()) + "\n";
-   message += "Total positions: " + IntegerToString(CountBuyPositions() + CountSellPositions()) + " / " + IntegerToString(MaxTotalPositions) + "\n";
-   message += "Spread actuel: " + IntegerToString((int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD)) + " (Max: " + DoubleToString(MaxSpread, 0) + ")";
+   // 3. Mise à jour du tableau de bord
+   UpdateDashboard();
+}
 
-   Comment(message);
+//+------------------------------------------------------------------+
+//| Création du tableau de bord graphique                            |
+//+------------------------------------------------------------------+
+void CreateDashboard()
+{
+   int x = 10, y = 30, w = 300, h = 180;
+
+   // Fond du tableau
+   CreateRectLabel("MainBg", x, y, w, h, InpDashboardBg);
+
+   // Titre
+   CreateLabel("Title", x+5, y+5, "--- EA SCALPING M1 REVERSAL ---", InpHeaderColor, 12);
+
+   // Labels Statiques
+   int row = y + 30;
+   CreateLabel("L_Threshold", x+10, row, "Seuil de mouvement:", InpTextColor); row+=20;
+   CreateLabel("L_LastMove", x+10, row, "Dernier mouvement:", InpTextColor); row+=20;
+   CreateLabel("L_TriggerPrice", x+10, row, "Prix déclencheur:", InpTextColor); row+=20;
+   CreateLabel("L_Positions", x+10, row, "Positions (B/S):", InpTextColor); row+=20;
+   CreateLabel("L_Total", x+10, row, "Total positions:", InpTextColor); row+=20;
+   CreateLabel("L_Spread", x+10, row, "Spread (Max):", InpTextColor);
+
+   // Labels Dynamiques (Valeurs)
+   row = y + 30;
+   int valX = x + 180;
+   CreateLabel("V_Threshold", valX, row, "", clrLightBlue); row+=20;
+   CreateLabel("V_LastMove", valX, row, "", clrOrange); row+=20;
+   CreateLabel("V_TriggerPrice", valX, row, "", clrWhite); row+=20;
+   CreateLabel("V_Positions", valX, row, "", clrWhite); row+=20;
+   CreateLabel("V_Total", valX, row, "", clrWhite); row+=20;
+   CreateLabel("V_Spread", valX, row, "", clrWhite);
+}
+
+//+------------------------------------------------------------------+
+//| Mise à jour des données du tableau de bord                       |
+//+------------------------------------------------------------------+
+void UpdateDashboard()
+{
+   ObjectSetString(0, UI_PREFIX+"V_Threshold", OBJPROP_TEXT, DoubleToString(PriceMoveThreshold, _Digits));
+   ObjectSetString(0, UI_PREFIX+"V_LastMove", OBJPROP_TEXT, lastMoveType);
+   ObjectSetString(0, UI_PREFIX+"V_TriggerPrice", OBJPROP_TEXT, DoubleToString(lastTriggerPrice, _Digits));
+
+   int buy = CountBuyPositions();
+   int sell = CountSellPositions();
+   ObjectSetString(0, UI_PREFIX+"V_Positions", OBJPROP_TEXT, IntegerToString(buy) + " / " + IntegerToString(sell));
+
+   string totalStr = IntegerToString(buy+sell) + " / " + IntegerToString(MaxTotalPositions);
+   color totalColor = (buy+sell >= MaxTotalPositions) ? clrRed : clrSpringGreen;
+   ObjectSetString(0, UI_PREFIX+"V_Total", OBJPROP_TEXT, totalStr);
+   ObjectSetInteger(0, UI_PREFIX+"V_Total", OBJPROP_COLOR, totalColor);
+
+   int currentSpread = (int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   string spreadStr = IntegerToString(currentSpread) + " (" + DoubleToString(MaxSpread, 0) + ")";
+   color spreadColor = (currentSpread > MaxSpread) ? clrRed : clrWhite;
+   ObjectSetString(0, UI_PREFIX+"V_Spread", OBJPROP_TEXT, spreadStr);
+   ObjectSetInteger(0, UI_PREFIX+"V_Spread", OBJPROP_COLOR, spreadColor);
+
+   ChartRedraw();
+}
+
+//+------------------------------------------------------------------+
+//| Affichage de l'image de fond                                     |
+//+------------------------------------------------------------------+
+void SetBackgroundImage()
+{
+   string name = UI_PREFIX + "Background";
+   if(ObjectFind(0, name) < 0)
+   {
+      ObjectCreate(0, name, OBJ_BITMAP_LABEL, 0, 0, 0);
+   }
+
+   ObjectSetString(0, name, OBJPROP_BMPFILE, "\\Images\\" + InpBackgroundImage);
+   ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, 0);
+   ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 0);
+   ObjectSetInteger(0, name, OBJPROP_BACK, true); // Mettre en arrière-plan
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+   ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+}
+
+//+------------------------------------------------------------------+
+//| Fonctions helper pour la création d'objets                       |
+//+------------------------------------------------------------------+
+void CreateRectLabel(string name, int x, int y, int w, int h, color bg)
+{
+   string objName = UI_PREFIX + name;
+   ObjectCreate(0, objName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, objName, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, objName, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, objName, OBJPROP_XSIZE, w);
+   ObjectSetInteger(0, objName, OBJPROP_YSIZE, h);
+   ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, bg);
+   ObjectSetInteger(0, objName, OBJPROP_BORDER_TYPE, BORDER_SUNKEN);
+   ObjectSetInteger(0, objName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+   ObjectSetInteger(0, objName, OBJPROP_BACK, false);
+}
+
+void CreateLabel(string name, int x, int y, string text, color clr, int fontSize=0)
+{
+   string objName = UI_PREFIX + name;
+   ObjectCreate(0, objName, OBJ_LABEL, 0, 0, 0);
+   ObjectSetInteger(0, objName, OBJPROP_XDISTANCE, x);
+   ObjectSetInteger(0, objName, OBJPROP_YDISTANCE, y);
+   ObjectSetString(0, objName, OBJPROP_TEXT, text);
+   ObjectSetInteger(0, objName, OBJPROP_COLOR, clr);
+   ObjectSetInteger(0, objName, OBJPROP_FONTSIZE, (fontSize==0 ? InpFontSize : fontSize));
+   ObjectSetString(0, objName, OBJPROP_FONT, "Arial");
+   ObjectSetInteger(0, objName, OBJPROP_CORNER, CORNER_LEFT_UPPER);
 }
 
 //+------------------------------------------------------------------+
@@ -86,15 +202,10 @@ void ResetAtNewBar()
 
    if(times[0] > lastBarTime)
    {
-      // Détection d'une nouvelle bougie
       lastBarTime = times[0];
-
       Print("Nouvelle bougie M1 détectée. Fermeture de toutes les positions.");
-
-      // Fermer TOUTES les positions
       CloseAllPositions();
 
-      // Analyse de la bougie précédente
       double pricesOpen[], pricesClose[];
       ArraySetAsSeries(pricesOpen, true);
       ArraySetAsSeries(pricesClose, true);
@@ -104,27 +215,11 @@ void ResetAtNewBar()
          double openPrev = pricesOpen[0];
          double closePrev = pricesClose[0];
 
-         // Vérification du spread
-         if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) > MaxSpread)
+         if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
          {
-            Print("Spread trop élevé pour ouvrir la position initiale de la bougie.");
+            if(closePrev > openPrev) { trade.Buy(LotSize, _Symbol); Print("Ouverture BUY initiale"); }
+            else if(closePrev < openPrev) { trade.Sell(LotSize, _Symbol); Print("Ouverture SELL initiale"); }
          }
-         else
-         {
-            // Ouvrir BUY si Close > Open, sinon SELL
-            if(closePrev > openPrev)
-            {
-               if(trade.Buy(LotSize, _Symbol))
-                  Print("Ouverture BUY initiale (Close > Open)");
-            }
-            else if(closePrev < openPrev)
-            {
-               if(trade.Sell(LotSize, _Symbol))
-                  Print("Ouverture SELL initiale (Close < Open)");
-            }
-         }
-
-         // Mise à jour du prix de déclenchement après le reset (même si trade échoue)
          lastTriggerPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
          lastMoveType = "Reset Bougie";
       }
@@ -139,122 +234,57 @@ void CheckPriceMoveAndFlip()
    double currentPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double diff = currentPrice - lastTriggerPrice;
 
-   // Si le mouvement dépasse le seuil
    if(MathAbs(diff) >= PriceMoveThreshold)
    {
       bool actionTaken = false;
-
-      if(diff <= -PriceMoveThreshold) // Le prix a baissé
+      if(diff <= -PriceMoveThreshold) // Baisse
       {
          lastMoveType = "Baisse";
-         Print("Baisse détectée (", diff, "). Tentative d'action.");
-
-         // Fermeture 1 BUY la plus ancienne
          CloseOldestPosition(POSITION_TYPE_BUY);
-
-         // Limite de positions avant ouverture
-         if(CountBuyPositions() + CountSellPositions() < MaxTotalPositions)
-         {
-            // Vérification du spread
-            if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
-            {
-               if(trade.Sell(LotSize, _Symbol))
-                  actionTaken = true;
-            }
-            else Print("Spread trop élevé pour SELL.");
-         }
-         else Print("Limite de positions atteinte.");
-
-         // On considère l'action comme traitée pour ce seuil
+         if(CountBuyPositions() + CountSellPositions() < MaxTotalPositions && SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
+            if(trade.Sell(LotSize, _Symbol)) actionTaken = true;
          actionTaken = true;
       }
-      else if(diff >= PriceMoveThreshold) // Le prix a monté
+      else if(diff >= PriceMoveThreshold) // Hausse
       {
          lastMoveType = "Hausse";
-         Print("Hausse détectée (", diff, "). Tentative d'action.");
-
-         // Fermeture 1 SELL la plus ancienne
          CloseOldestPosition(POSITION_TYPE_SELL);
-
-         // Limite de positions avant ouverture
-         if(CountBuyPositions() + CountSellPositions() < MaxTotalPositions)
-         {
-            // Vérification du spread
-            if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
-            {
-               if(trade.Buy(LotSize, _Symbol))
-                  actionTaken = true;
-            }
-            else Print("Spread trop élevé pour BUY.");
-         }
-         else Print("Limite de positions atteinte.");
-
-         // On considère l'action comme traitée pour ce seuil
+         if(CountBuyPositions() + CountSellPositions() < MaxTotalPositions && SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
+            if(trade.Buy(LotSize, _Symbol)) actionTaken = true;
          actionTaken = true;
       }
 
-      if(actionTaken)
-      {
-         lastTriggerPrice = currentPrice;
-      }
+      if(actionTaken) lastTriggerPrice = currentPrice;
    }
 }
 
-//+------------------------------------------------------------------+
-//| Fermer toutes les positions ouvertes par cet EA                  |
-//+------------------------------------------------------------------+
 void CloseAllPositions()
 {
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
       ulong ticket = PositionGetTicket(i);
       if(PositionSelectByTicket(ticket))
-      {
          if(PositionGetInteger(POSITION_MAGIC) == MagicNumber && PositionGetString(POSITION_SYMBOL) == _Symbol)
-         {
             trade.PositionClose(ticket);
-         }
-      }
    }
 }
 
-//+------------------------------------------------------------------+
-//| Fermer la position la plus ancienne d'un type donné              |
-//+------------------------------------------------------------------+
 void CloseOldestPosition(ENUM_POSITION_TYPE type)
 {
-   ulong oldestTicket = 0;
-   long oldestTime = 0;
-
+   ulong oldestTicket = 0; long oldestTime = 0;
    for(int i = 0; i < PositionsTotal(); i++)
    {
       ulong ticket = PositionGetTicket(i);
       if(PositionSelectByTicket(ticket))
-      {
-         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber &&
-            PositionGetString(POSITION_SYMBOL) == _Symbol &&
-            PositionGetInteger(POSITION_TYPE) == type)
+         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_TYPE) == type)
          {
             long posTime = PositionGetInteger(POSITION_TIME_MSC);
-            if(oldestTicket == 0 || posTime < oldestTime)
-            {
-               oldestTime = posTime;
-               oldestTicket = ticket;
-            }
+            if(oldestTicket == 0 || posTime < oldestTime) { oldestTime = posTime; oldestTicket = ticket; }
          }
-      }
    }
-
-   if(oldestTicket != 0)
-   {
-      if(trade.PositionClose(oldestTicket))
-         Print("Fermeture position ancienne ticket #", oldestTicket);
-   }
+   if(oldestTicket != 0) trade.PositionClose(oldestTicket);
 }
 
-//+------------------------------------------------------------------+
-//| Compter le nombre de positions BUY                               |
-//+------------------------------------------------------------------+
 int CountBuyPositions()
 {
    int count = 0;
@@ -262,21 +292,12 @@ int CountBuyPositions()
    {
       ulong ticket = PositionGetTicket(i);
       if(PositionSelectByTicket(ticket))
-      {
-         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber &&
-            PositionGetString(POSITION_SYMBOL) == _Symbol &&
-            PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
-         {
+         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY)
             count++;
-         }
-      }
    }
    return count;
 }
 
-//+------------------------------------------------------------------+
-//| Compter le nombre de positions SELL                              |
-//+------------------------------------------------------------------+
 int CountSellPositions()
 {
    int count = 0;
@@ -284,14 +305,8 @@ int CountSellPositions()
    {
       ulong ticket = PositionGetTicket(i);
       if(PositionSelectByTicket(ticket))
-      {
-         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber &&
-            PositionGetString(POSITION_SYMBOL) == _Symbol &&
-            PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)
-         {
+         if(PositionGetInteger(POSITION_MAGIC) == MagicNumber && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)
             count++;
-         }
-      }
    }
    return count;
 }
