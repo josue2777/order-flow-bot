@@ -265,7 +265,7 @@ void ExecuteScalpTrade(SMC_Data &data)
 
     lot = NormalizeDouble(MathMax(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN), MathMin(SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX), lot)), 2);
 
-    trade.PositionOpen(_Symbol, isBuy ? POSITION_TYPE_BUY : POSITION_TYPE_SELL, lot, price, sl, tp, "SMC_Universal");
+    trade.PositionOpen(_Symbol, isBuy ? ORDER_TYPE_BUY : ORDER_TYPE_SELL, lot, price, sl, tp, "SMC_Universal");
 }
 
 void ManageOpenPosition()

@@ -198,7 +198,8 @@ void ExecuteTrade(ENUM_POSITION_TYPE type)
     double maxLot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
     lot = NormalizeDouble(MathMax(minLot, MathMin(maxLot, lot)), 2);
 
-    trade.PositionOpen(_Symbol, type, lot, price, sl, tp, "Universal_TrendBreak");
+    ENUM_ORDER_TYPE orderType = (type == POSITION_TYPE_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+    trade.PositionOpen(_Symbol, orderType, lot, price, sl, tp, "Universal_TrendBreak");
 }
 
 //+------------------------------------------------------------------+
