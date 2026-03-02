@@ -126,7 +126,7 @@ string GetSymbolData(string symbol, ENUM_TIMEFRAMES period)
 void SaveFile(string fileName, string data)
 {
     ResetLastError();
-    int file_handle = FileOpen(fileName, FILE_WRITE|FILE_TXT|FILE_ANSI);
+    int file_handle = FileOpen(fileName, FILE_WRITE|FILE_ANSI);
     if (file_handle != INVALID_HANDLE)
     {
         FileWriteString(file_handle, data);

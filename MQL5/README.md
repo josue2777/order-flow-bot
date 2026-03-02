@@ -2,16 +2,22 @@
 
 Cette suite contient plusieurs outils de trading algorithmique avancés pour MetaTrader 5, allant du scalping agressif à la stratégie SMC institutionnelle.
 
-## 1. XAUUSD SMC Scalper (`XAUUSD_SMC_Scalper.mq5`)
-Un EA sophistiqué basé sur les concepts de **Smart Money (SMC)**.
-- **Optimisation** : Spécialement conçu pour l'Or (XAUUSD) en unité de temps **M15**.
+## 1. Universal SMC Scalper (`Universal_SMC_Scalper.mq5`)
+Un EA sophistiqué basé sur les concepts de **Smart Money (SMC)**, désormais compatible avec tous les marchés et optimisé pour le Strategy Tester.
+- **Polyvalence** : Utilise `_Symbol` pour s'adapter automatiquement au graphique actuel.
 - **Logique** :
   - Détecte les changements de structure (**CHoCH**).
   - Identifie les déséquilibres (**Fair Value Gaps - FVG**).
-  - Cherche les zones d'institutions (**Order Blocks**).
-- **Sécurité** : Calcul de lot basé sur le risque (2% par défaut) et Stop Loss dynamique (ATR).
+  - Cherche les zones d'intérêt institutionnel (**Order Blocks**).
+- **Gestion du Risque** : Calcul de lot dynamique et Stop Loss basé sur l'ATR.
 
-## 2. Scalping M1 Reversal EA (`ScalpingM1Reversal.mq5`)
+## 2. Universal TrendBreak Trauma (`Universal_TrendBreak_Trauma.mq5`)
+Une stratégie de cassure de tendance confirmée par l'indicateur Trauma et le RSI.
+- **Concept** : Achète si le prix est au-dessus du Trauma et casse une résistance. Vend si le prix est en dessous du Trauma et casse un support.
+- **Sortie** : Utilise le RSI (Surachat/Survente) pour sécuriser les profits.
+- **Universel** : Adapté pour l'Or, le Forex, les Cryptos et les Indices.
+
+## 3. Scalping M1 Reversal EA (`ScalpingM1Reversal.mq5`)
 Un robot de scalping haute fréquence pour l'unité de temps M1.
 - **Stratégie** : Flip de position sur mouvement de prix rapide + Reset complet à chaque nouvelle minute.
 - **Visuel** : Tableau de bord intégré et support d'arrière-plan animé (système de frames `.bmp`).
