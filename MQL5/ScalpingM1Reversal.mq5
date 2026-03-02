@@ -3,8 +3,8 @@
 
 #property strict
 #property copyright "Copyright 2026"
-#property version   "1.03"
-#property description "EA de scalping M1 avec tableau de bord graphique et arrière-plan (statique ou animé)."
+#property version   "1.04"
+#property description "EA de scalping M1 avec correctif de l'affichage de l'image de fond."
 
 //--- Includes
 #include <Trade\Trade.mqh>
@@ -62,6 +62,7 @@ int OnInit()
       EventSetMillisecondTimer(InpAnimationMs);
    }
 
+   ChartRedraw();
    return(INIT_SUCCEEDED);
 }
 
@@ -70,9 +71,7 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
-   // Arrêt du timer
    EventKillTimer();
-   // Nettoyage des objets graphiques
    ObjectsDeleteAll(0, UI_PREFIX);
    Comment("");
 }
@@ -82,13 +81,8 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   // 1. Vérification du reset à chaque nouvelle bougie M1
    ResetAtNewBar();
-
-   // 2. Vérification du mouvement de prix pour l'ouverture/fermeture de positions
    CheckPriceMoveAndFlip();
-
-   // 3. Mise à jour du tableau de bord
    UpdateDashboard();
 }
 
@@ -103,9 +97,13 @@ void OnTimer()
    if(currentFrame >= InpFrameCount) currentFrame = 0;
 
    string name = UI_PREFIX + "Background";
-   string fileName = "\\Images\\" + InpImagePrefix + IntegerToString(currentFrame) + ".bmp";
+   // Le chemin doit être relatif au dossier MQL5/Images/
+   string fileName = InpImagePrefix + IntegerToString(currentFrame) + ".bmp";
 
-   ObjectSetString(0, name, OBJPROP_BMPFILE, fileName);
+   if(!ObjectSetString(0, name, OBJPROP_BMPFILE, fileName))
+   {
+      Print("Erreur lors du chargement de l'image: ", fileName);
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -157,18 +155,31 @@ void UpdateDashboard()
 void CreateBackgroundImage()
 {
    string name = UI_PREFIX + "Background";
-   if(ObjectFind(0, name) < 0) ObjectCreate(0, name, OBJ_BITMAP_LABEL, 0, 0, 0);
+   if(ObjectFind(0, name) < 0)
+   {
+      if(!ObjectCreate(0, name, OBJ_BITMAP_LABEL, 0, 0, 0))
+      {
+         Print("Erreur création objet background");
+         return;
+      }
+   }
 
-   // Chargement de l'image de base (frame 0)
-   string fileName = "\\Images\\" + InpImagePrefix + "0.bmp";
-   ObjectSetString(0, name, OBJPROP_BMPFILE, fileName);
+   // Le chemin doit être relatif au dossier MQL5/Images/
+   // Supprimer tout slash initial ou préfixe \Images\ pour simplifier
+   string fileName = InpImagePrefix + "0.bmp";
+
+   Print("Tentative de chargement de l'image de fond: ", fileName);
+
+   if(!ObjectSetString(0, name, OBJPROP_BMPFILE, fileName))
+   {
+      Print("Erreur chargement image initiale: ", fileName, ". Erreur code: ", GetLastError());
+   }
 
    ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, 0);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 0);
    ObjectSetInteger(0, name, OBJPROP_BACK, true);
    ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
-   ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
 }
 
 void CreateRectLabel(string name, int x, int y, int w, int h, color bg)
