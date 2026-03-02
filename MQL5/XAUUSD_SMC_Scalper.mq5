@@ -137,7 +137,7 @@ void AnalyzeSMCStructure(SMC_Data &data)
         if(data.hasFVG)
         {
             data.fvgMidLevel = (data.fvgUpperLevel + data.fvgLowerLevel) / 2.0;
-            data.hasOrderBlock = DetectBearishOrderBlock(data.fvgHighTemp(), data.orderBlockLevel);
+            data.hasOrderBlock = DetectBearishOrderBlock(data.fvgUpperLevel, data.orderBlockLevel);
             if(data.hasOrderBlock) data.tradeDirection = 1;
         }
     }
@@ -152,7 +152,7 @@ void AnalyzeSMCStructure(SMC_Data &data)
             if(data.hasFVG)
             {
                 data.fvgMidLevel = (data.fvgUpperLevel + data.fvgLowerLevel) / 2.0;
-                data.hasOrderBlock = DetectBullishOrderBlock(data.fvgLowTemp(), data.orderBlockLevel);
+                data.hasOrderBlock = DetectBullishOrderBlock(data.fvgLowerLevel, data.orderBlockLevel);
                 if(data.hasOrderBlock) data.tradeDirection = -1;
             }
         }
@@ -216,10 +216,11 @@ bool DetectBearishFVG(double &fvgH, double &fvgL)
 bool DetectBearishOrderBlock(double fvgLimit, double &obLevel)
 {
     double high[], low[], open[], close[];
-    ArraySetAsSeries(high, true); ArraySetAsSeries(open, true); ArraySetAsSeries(close, true);
-    CopyHigh(InpSymbol, InpTimeFrame, 0, InpOBLookback, high);
-    CopyOpen(InpSymbol, InpTimeFrame, 0, InpOBLookback, open);
-    CopyClose(InpSymbol, InpTimeFrame, 0, InpOBLookback, close);
+    ArraySetAsSeries(high, true); ArraySetAsSeries(low, true); ArraySetAsSeries(open, true); ArraySetAsSeries(close, true);
+    if(CopyHigh(InpSymbol, InpTimeFrame, 0, InpOBLookback, high) < InpOBLookback) return false;
+    if(CopyLow(InpSymbol, InpTimeFrame, 0, InpOBLookback, low) < InpOBLookback) return false;
+    if(CopyOpen(InpSymbol, InpTimeFrame, 0, InpOBLookback, open) < InpOBLookback) return false;
+    if(CopyClose(InpSymbol, InpTimeFrame, 0, InpOBLookback, close) < InpOBLookback) return false;
 
     for(int i=1; i<InpOBLookback; i++) {
         if(close[i] < open[i] && (high[i]-low[i]) > 0) {
@@ -232,11 +233,11 @@ bool DetectBearishOrderBlock(double fvgLimit, double &obLevel)
 
 bool DetectBullishOrderBlock(double fvgLimit, double &obLevel)
 {
-    double high[], low[], open[], close[];
+    double low[], open[], close[];
     ArraySetAsSeries(low, true); ArraySetAsSeries(open, true); ArraySetAsSeries(close, true);
-    CopyLow(InpSymbol, InpTimeFrame, 0, InpOBLookback, low);
-    CopyOpen(InpSymbol, InpTimeFrame, 0, InpOBLookback, open);
-    CopyClose(InpSymbol, InpTimeFrame, 0, InpOBLookback, close);
+    if(CopyLow(InpSymbol, InpTimeFrame, 0, InpOBLookback, low) < InpOBLookback) return false;
+    if(CopyOpen(InpSymbol, InpTimeFrame, 0, InpOBLookback, open) < InpOBLookback) return false;
+    if(CopyClose(InpSymbol, InpTimeFrame, 0, InpOBLookback, close) < InpOBLookback) return false;
 
     for(int i=1; i<InpOBLookback; i++) {
         if(close[i] > open[i]) {
@@ -322,7 +323,3 @@ bool IsTradingTime()
     if(!InpTradeOnFriday && dt.day_of_week == 5 && dt.hour > 16) return false;
     return (dt.hour >= InpStartHour && dt.hour < InpEndHour);
 }
-
-//--- Fonctions techniques pour la structure de données
-double SMC_Data::fvgHighTemp() { return fvgUpperLevel; }
-double SMC_Data::fvgLowTemp()  { return fvgLowerLevel; }

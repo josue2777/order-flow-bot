@@ -16,6 +16,14 @@ Un robot de scalping haute fréquence pour l'unité de temps M1.
 - **Stratégie** : Flip de position sur mouvement de prix rapide + Reset complet à chaque nouvelle minute.
 - **Visuel** : Tableau de bord intégré et support d'arrière-plan animé (système de frames `.bmp`).
 
+### Guide Rapide : Scalping M1 Reversal
+- **Installation** : Copiez le fichier dans `MQL5/Experts`, compilez dans MetaEditor (F7) et glissez-le sur un graphique **XAUUSD M1**.
+- **Réglages (Seuil/Threshold)** :
+  - **Or (Gold)** : `0.20` pour un scalping réactif, `0.50` pour plus de prudence.
+  - **Forex (5 digits)** : `0.00020` (2 pips) pour les paires majeures comme EURUSD.
+  - **Crypto (BTC)** : `5.0` ou `10.0` selon la volatilité actuelle.
+- **Test Démo** : Utilisez le Testeur de Stratégie (Ctrl+R) en mode "Chaque tick basé sur des ticks réels" pour une simulation fidèle du scalping.
+
 ## 3. Aurum Core DEMO (`AurumCore.mq5`)
 EA éducatif basé sur un croisement de moyennes mobiles (EMA).
 - **Correction** : Zéro repainting grâce à l'utilisation des bougies clôturées.

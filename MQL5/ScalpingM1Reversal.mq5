@@ -149,6 +149,15 @@ void UpdateDashboard()
    color spreadColor = (currentSpread > MaxSpread) ? clrRed : clrWhite;
    ObjectSetString(0, UI_PREFIX+"V_Spread", OBJPROP_TEXT, spreadStr);
    ObjectSetInteger(0, UI_PREFIX+"V_Spread", OBJPROP_COLOR, spreadColor);
+
+   // Logging Comment sur le graphique
+   string comment = "--- SCALPING M1 DASHBOARD ---\n" +
+                    "Seuil: " + DoubleToString(PriceMoveThreshold, _Digits) + "\n" +
+                    "Positions: " + IntegerToString(buy+sell) + "/" + IntegerToString(MaxTotalPositions) + "\n" +
+                    "Dernier Mouvement: " + lastMoveType + "\n" +
+                    "Dernier Prix: " + DoubleToString(lastTriggerPrice, _Digits);
+   Comment(comment);
+
    ChartRedraw();
 }
 
@@ -218,10 +227,17 @@ void ResetAtNewBar()
       double pricesOpen[], pricesClose[]; ArraySetAsSeries(pricesOpen, true); ArraySetAsSeries(pricesClose, true);
       if(CopyOpen(_Symbol, PERIOD_M1, 1, 1, pricesOpen) > 0 && CopyClose(_Symbol, PERIOD_M1, 1, 1, pricesClose) > 0)
       {
+         Print("Reset Bougie M1 - Clôture de toutes les positions.");
          if(SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
          {
-            if(pricesClose[0] > pricesOpen[0]) trade.Buy(LotSize, _Symbol);
-            else if(pricesClose[0] < pricesOpen[0]) trade.Sell(LotSize, _Symbol);
+            if(pricesClose[0] > pricesOpen[0])
+            {
+               if(trade.Buy(LotSize, _Symbol)) Print("Reset: Ouverture BUY (C > O)");
+            }
+            else if(pricesClose[0] < pricesOpen[0])
+            {
+               if(trade.Sell(LotSize, _Symbol)) Print("Reset: Ouverture SELL (C < O)");
+            }
          }
          lastTriggerPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
          lastMoveType = "Reset Bougie";
@@ -235,10 +251,28 @@ void CheckPriceMoveAndFlip()
    double diff = currentPrice - lastTriggerPrice;
    if(MathAbs(diff) >= PriceMoveThreshold)
    {
-      bool actionTaken = false;
-      if(diff <= -PriceMoveThreshold) { lastMoveType = "Baisse"; CloseOldestPosition(POSITION_TYPE_BUY); if(CountBuyPositions()+CountSellPositions()<MaxTotalPositions && SymbolInfoInteger(_Symbol, SYMBOL_SPREAD)<=MaxSpread) if(trade.Sell(LotSize, _Symbol)) actionTaken = true; actionTaken = true; }
-      else if(diff >= PriceMoveThreshold) { lastMoveType = "Hausse"; CloseOldestPosition(POSITION_TYPE_SELL); if(CountBuyPositions()+CountSellPositions()<MaxTotalPositions && SymbolInfoInteger(_Symbol, SYMBOL_SPREAD)<=MaxSpread) if(trade.Buy(LotSize, _Symbol)) actionTaken = true; actionTaken = true; }
-      if(actionTaken) lastTriggerPrice = currentPrice;
+      if(diff <= -PriceMoveThreshold)
+      {
+         lastMoveType = "Baisse";
+         CloseOldestPosition(POSITION_TYPE_BUY); // Fermer exactement 1 BUY
+         if(CountBuyPositions() + CountSellPositions() < MaxTotalPositions && SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
+         {
+            if(trade.Sell(LotSize, _Symbol))
+               Print("Action Baisse: Fermeture BUY la plus ancienne + Ouverture SELL (Lot: ", LotSize, ")");
+         }
+         lastTriggerPrice = currentPrice;
+      }
+      else if(diff >= PriceMoveThreshold)
+      {
+         lastMoveType = "Hausse";
+         CloseOldestPosition(POSITION_TYPE_SELL); // Fermer exactement 1 SELL
+         if(CountBuyPositions() + CountSellPositions() < MaxTotalPositions && SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) <= MaxSpread)
+         {
+            if(trade.Buy(LotSize, _Symbol))
+               Print("Action Hausse: Fermeture SELL la plus ancienne + Ouverture BUY (Lot: ", LotSize, ")");
+         }
+         lastTriggerPrice = currentPrice;
+      }
    }
 }
 
