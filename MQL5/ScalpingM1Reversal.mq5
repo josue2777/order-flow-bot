@@ -3,8 +3,8 @@
 
 #property strict
 #property copyright "Copyright 2026"
-#property version   "1.02"
-#property description "EA de scalping M1 avec tableau de bord graphique et arrière-plan animé."
+#property version   "1.03"
+#property description "EA de scalping M1 avec tableau de bord graphique et arrière-plan (statique ou animé)."
 
 //--- Includes
 #include <Trade\Trade.mqh>
@@ -17,8 +17,8 @@ input ulong MagicNumber = 20260228;         // Identifiant unique des positions
 input double MaxSpread = 30.0;              // Spread maximum en points
 
 //--- Inputs Esthétiques & Animation
-input string InpImagePrefix    = "robot_f_";          // Préfixe des fichiers (ex: robot_f_0.bmp, robot_f_1.bmp...)
-input int    InpFrameCount      = 8;                   // Nombre de frames pour l'animation
+input string InpImagePrefix    = "robot_f_";          // Préfixe des fichiers (ex: robot_f_0.bmp)
+input int    InpFrameCount      = 1;                   // Nombre de frames (1 pour image seule, >1 pour animation)
 input int    InpAnimationMs     = 100;                 // Vitesse d'animation en millisecondes
 input color  InpDashboardBg     = C'20,20,20';         // Couleur de fond du tableau
 input color  InpHeaderColor     = clrGold;             // Couleur des entêtes
@@ -56,8 +56,11 @@ int OnInit()
    CreateBackgroundImage();
    CreateDashboard();
 
-   // Démarrage du timer pour l'animation
-   EventSetMillisecondTimer(InpAnimationMs);
+   // Démarrage du timer seulement si l'utilisateur souhaite une animation (>1 frame)
+   if(InpFrameCount > 1)
+   {
+      EventSetMillisecondTimer(InpAnimationMs);
+   }
 
    return(INIT_SUCCEEDED);
 }
@@ -155,6 +158,11 @@ void CreateBackgroundImage()
 {
    string name = UI_PREFIX + "Background";
    if(ObjectFind(0, name) < 0) ObjectCreate(0, name, OBJ_BITMAP_LABEL, 0, 0, 0);
+
+   // Chargement de l'image de base (frame 0)
+   string fileName = "\\Images\\" + InpImagePrefix + "0.bmp";
+   ObjectSetString(0, name, OBJPROP_BMPFILE, fileName);
+
    ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, 0);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 0);
